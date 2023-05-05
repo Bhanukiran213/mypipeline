@@ -1,0 +1,77 @@
+pipeline {
+    agent {
+  label 'slave1'
+}
+
+    stages {
+        stage('Hello') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+        stage('checkout'){
+            steps{
+               checkout scmGit(branches: [
+			   [
+			   name: 
+			   "*/${Branch}"
+			   ]
+			   ], 
+			   extensions: [], 
+			   userRemoteConfigs: 
+			   [
+			   [
+			   credentialsId: 'Jenkins_Github',
+			   url: 'https://github.com/Bhanukiran213/hello-world-war.git'
+			   ]
+			   ]
+			   ) 
+            }
+        }
+        stage('Build'){
+            tools {
+              maven 'mvn'
+            }
+            steps{
+                sh 'mvn package'
+            }
+        }
+        stage('Artafactory upload'){
+            steps{
+                script{
+                    def mavenPom = readMavenPom file: 'pom.xml'
+                nexusArtifactUploader artifacts:
+                 [
+                    [
+                        artifactId: "${mavenPom.artifactId}", 
+                        classifier: '', 
+                        file: "target/${mavenPom.artifactId}-${mavenPom.version}.war",
+                         type: 'war'
+                         ]
+                         ], 
+                         credentialsId: 'Nexus_cred', 
+                         groupId: 'com.efsavage', 
+                         nexusUrl: '13.233.67.179:8081', 
+                         nexusVersion: 'nexus3',
+                          protocol: 'http', 
+                          repository: 'myapp', 
+                          version: "${mavenPom.version}"
+            }
+        }
+        }
+        stage('Deploy'){
+            steps{
+                deploy adapters: 
+                [
+                    tomcat9(
+                    credentialsId: 'Jenkins_Tomcat', 
+                    path: '', 
+                    url: 'http://13.233.112.177:8080/'
+                    )
+                    ],
+                     contextPath: 'myapp', 
+                     war: '**/*.war'
+            }
+        }
+    }
+}
